@@ -20,9 +20,9 @@ Print TRY_CAST ('27' AS datetime) -- Return NULL instead of showing error messag
 /*
 	Hints for Data Types:
 	decimal(p,s) -- p is the maximum total number of decimal digits to be stored, and s means the number of decimal digits that are stored to the right of the decimal point
-		datetime -- default format: YYYY-MM-DD hh:mm:ss
-			date -- default format: YYYY-MM-DD
-		nchar(s) -- n means this string is decoded by Unicode
+	datetime -- default format: YYYY-MM-DD hh:mm:ss
+	date -- default format: YYYY-MM-DD
+	nchar(s) -- n means this string is decoded by Unicode
  */
 
 

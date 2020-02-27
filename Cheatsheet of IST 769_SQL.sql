@@ -50,13 +50,17 @@ CREATE TABLE Customers (
     name varchar(50) NOT NULL,
     Age int CHECK (Age>=18),
     telephone char(20) DEFAULT 'Null',
-    FORK INT NOT NULL
-    CONSTRAINT FOREGIN_KEY_CUSTOMERS FOREGIN KEY(FORK) REFERENCE Other_table(PK)
+    FORK INT NOT NULL,
+    CONSTRAINT FOREGIN_KEY_CUSTOMERS FOREIGN KEY(FORK) REFERENCES Other_table(PK)
 )
 WAITFOR DELAY '00:00:05' -- Wait for 5 seconds and then execute next query
 ALTER TABLE Customers
 	ADD Email varchar(255) -- Add new column
-	ALTER Email nvarchar(30) -- Change column data type
+GO
+ALTER TABLE Customers
+	ALTER COLUMN Email nvarchar(30) -- Change column data type
+GO
+ALTER TABLE Customers
 	DROP COLUMN Email -- Drop a column
 GO
 INSERT INTO Customers(name,Age, telephone, FORK)
@@ -132,7 +136,7 @@ CREATE Function function_name_2(
 	@f1 INT
 ) RETURNS TABLE AS
 	RETURN(
-		/* Processes in the function */	
+		/* Select Statement in the function */	
 		)
 GO
 SELECT function_name_2(30)
@@ -189,9 +193,9 @@ EXECUTE procedure_name_1 2, 'Syracuse', 1
 ALTER TABLE table_name
 	ADD
 		valid_from DATETIME2(2) GENERATED ALWAYS AS ROW START HIDDEN
-		CONSTRAINT constraint_name_1 FROM DEFAULT DATEADD(second, -1, SYSUTCDATETIME())
+		CONSTRAINT constraint_name_1 DEFAULT DATEADD(second, -1, SYSUTCDATETIME())
 		, valid_to DATETIME2(2) GENERATED ALWAYS AS ROW END HIDDEN
-		CONSTRAINT constraint_name_2 FROM DEFAULT '9999.12.31 23:59:59.99'
+		CONSTRAINT constraint_name_2 DEFAULT '9999.12.31 23:59:59.99'
 		, PERIOD FOR SYSTEM_TIME(valid_from,valid_to)
 GO
 ALTER TABLE table_name

@@ -47,10 +47,10 @@ ORDER BY
 GO
 CREATE TABLE Customers (
     name_id INT PRIMARY KEY IDENTITY,
-    name varchar(50),
+    name varchar(50) NOT NULL,
     Age int CHECK (Age>=18),
     telephone char(20) DEFAULT 'Null',
-    FORK INT
+    FORK INT NOT NULL
     CONSTRAINT FOREGIN_KEY_CUSTOMERS FOREGIN KEY(FORK) REFERENCE Other_table(PK)
 )
 WAITFOR DELAY '00:00:05' -- Wait for 5 seconds and then execute next query
@@ -58,6 +58,17 @@ ALTER TABLE Customers
 	ADD Email varchar(255) -- Add new column
 	ALTER Email nvarchar(30) -- Change column data type
 	DROP COLUMN Email -- Drop a column
+GO
+INSERT INTO Customers(name,Age, telephone, FORK)
+	VALUES('Rick',25,'312-2233-2233',452) -- One way to insert a single row of data
+GO
+INSERT INTO Customers(name,Age, FORK)
+	SELECT 'Jack',23,312
+	UNION ALL 
+	SELECT 'Hank',21,126
+	UNION ALL
+	SELECT 'Mark',36,344 -- Another way to insert multiple rows into the table for one time
+GO
 
 
 -- 1.4 String Function
@@ -254,8 +265,23 @@ WHERE
 	The_key_column = 'Condition_1'
 
 -- 4.1 JSON/XML Format
+PRINT isjson(@factor) -- Returns 1 if the string contains valid JSON; otherwise, returns 0. Returns null if expression is null. Does not return errors.
 
-SELECT *
+DECLARE @JSONFILE varchar(MAX) = '[
+	{"Reviewer":{"Name": "Kent Belevit", "Rating" : 2 }}, 
+	{"Reviewer":{"Name": "Artie Choke", "Email": "ack@mail.com", "Rating" : 3 }}
+	]'
+SELECT * FROM OPENJSON(@JSONFILE) -- It will return a flatterned json structure: a two-row table containing a reviewed info each
+
+SELECT * INTO Reviews
+	FROM OPENJSON(@JSONFILE)
+	WITH(Name varchar(20) '$.Reviewer.Name',
+		 Email varchar(100) '$.Reviewer.Email',
+		 Rating decimal(3,2) '$.Reviewer.Rating') -- It would extract the value from the basic structure, showing a table of 3 columns and 2 rows
+
+JSON_QUERY(@JSONFILE) -- When you save a table with JSON info into a JSON file, use JSON_QUERY so that the system would deal with the info as JSON not string
+
+SELECT * 
 FROM
 	table_name
 FOR JSON AUTO --Transform the table into JSON format
@@ -276,14 +302,26 @@ WITH PASSWORD = N'123456'
 GO
 CREATE USER username FROM LOGIN loginname
 GO
-SELECT * FROM sys.database_principals
-SELECT * FROM sys.database_permissions
+SELECT * FROM sys.database_principals -- Show all the information about default principals in the database system
+SELECT * FROM sys.database_permissions -- Show all the information about default permissions in the database system
 GO
-GRANT SELECT ON Schema::some_database_name TO username -- Now the User can read the some_database_name
+GRANT SELECT ON Schema::[some_database_name | view_name_1] TO username -- Now the User can read the some_database_name/view_name_1
 GRANT EXECUTE ON Schema::procedure_name_1 TO username -- Now the User can use procedure_name_1
 DENY permission ON object TO principal -- Denies a permission to a principal
 REVOKE permission ON object TO principal -- Removes a previously granted or denied permission
 
 
--- 5.2 CROSS APPLY
-  --TBC
+-- 5.2 CROSS APPLY/OUTER APPLY
+
+SELECT a.*,b.*
+FROM
+	table_name_1 AS a
+CROSS APPLY
+	( SELECT colum,COUNT(*) FROM table_name_2 WHERE column < a.column GROUP BY column ) AS b
+
+/*
+In fact, the CROSS APPLY function is like the INNER JOIN/LEFT JOIN function
+However, the difference is that the APPLY function could directly apply the value of the former table into the latter table
+it can be used in WHERE/ON clauses or any other functions (such as OPENJSON() or STRING_SPLIT() ) for more usages
+The OUTER APPLY would contain Null value while the CROSS APPLY doesn't
+ */

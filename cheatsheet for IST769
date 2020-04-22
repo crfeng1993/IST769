@@ -1,0 +1,242 @@
+/* Cheatsheet of NoSQL for IST679 */
+/*       Credited to Ruifeng      */
+
+1. Hadoop Basic Knowledge
+
+- Preparation
+	cd adv-db-labs
+	cd hadoop/
+	docker-compose up -d
+	docker-compose ps
+	docker-compose exec cloudera bash -c "su -l cloudera"
+
+1.1 Upload the data
+- Check the file list of HDFS
+	hadoop fs -ls /user/cloudera
+- Create a new empty folder in the HDFS in the current path
+	hadoop fs -mkdir filename
+	hadoop fs -mkdir fileInTheMiddle/truefile
+- Copy the local files onto the HDFS
+	hadoop fs -put datasets/file/* /user/cloudera/text/
+	hadoop fs -put datasets/file/*.csv /user/cloudera/logs/
+	hadoop fs -put datasets/file/theSerie-?.csv /user/cloudera/logs/
+
+1.2 Mapreduce Example
+- Implement the mapreduce configuration file (Usually given by others)
+	export MREX=/usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar
+- Open the article(or file) you want to implement mapreduce
+	hadoop fs -cat /user/cloudera/.../file.txt
+- Start the wordcount configuration in the re-launch file and save the result in a new path
+	yarn jar $MREX wordcount /user/cloudera/.../file.txt /user/cloudera/resultSavingFolder
+- Try to read the result/pick up certain info from the result?
+	hadoop fs -cat /user/cloudera/resultSavingFolder/*
+	hadoop fs -cat /user/cloudera/resultSavingFolder/* | grep "keyword"
+
+1.3 Use sqoop to transfer data betweeen HDFS and SQL
+- Use sqoop to verify the table list in the SQL database
+	sqoop list-table --connect jdbc://cloudera/fudgemart_v3 --username=root --password=cloudera
+- Use sqoop to import tables in the SQL into HDFS
+	sqoop import --connect jdbc://cloudera/fudgemart_v3 --username=root --password=cloudera
+	--query "SELECT * FROM fudgemart_products WHERE product_department='Clothing' AND $CONDITIONS "
+	--target-dir /user/cloudera/fudgemart-clothing
+	-- as-textfile --split-by product_id
+- Use sqoop to import tables in HDFS into MySQL
+	sqoop export --connect jdbc:mysql://cloudera/twitter --username=root --password=cloudera --table tweets --export-dir tweets/ --input-fields-terminated-by "|"
+
+1.4 Use Pig to manipulate the database
+- Preparation
+	pig
+- Load a HDFS dataset into a relation with an explicit schema
+	iplookup = LOAD '/user/cloudera/clickstream/iplookup/*' USING PigStorage(',') AS (IP:chararray, Country:chararray,City:chararray);
+	(show schema)
+	explain iplookup
+- Filter the dataset with condition
+	iplookup1 = FILTER iplookup BY Country != 'Country';
+	logs1 = FILTER logs BY NOT STARTSWITH(reqdate,'#');
+- Sort the dataset by certain column
+	iplookup1_sort = ORDER iplookup1 BY IP ASC;
+- Aggregate the dataset by certain column
+	iplookup_group = GROUP iplookup1 BY State;
+	(Check the structure of the dataset)
+	describe iplookup_group
+- Choose columns from the dataset
+	(Also Final step for aggregating the data)
+	iplookup_count = FOREACH iplookup_group GENERATE group AS State, COUNT(iplookup1.IP) AS Count;
+- Bake(Dump) the dataset to have a look
+	Dump iplookup1_sort
+- Store the output in a certain path with filename
+	store iplookup1_sort INTO '/user/cloudera/clickstream/iplookup_nonheader' USING PigStorage(',');
+
+1.5 Use Hive to manipulate the dataset
+- Preparation
+	beeline -u jdbc:hive2://localhost:10000/default -n cloudera -p cloudera --silent=true
+- Database Preparation
+	CREATE DATABASE clickstream;
+	USE clickstream;
+	SHOW TABLES;
+- Create table in Hive SQL and save it in a certain path
+	('\t' and ',' mainly suggest the format of the file)
+	CREATE EXTERNAL TABLE weblogs(reqdate string, reqtime string, uri string, ipaddress string, useragent string) ROW FORMAT DELIMITED FIELDS TERMINATED BY '\t' LOCATION '/user/cloudera/clickstream/logs_noheader';
+- Create an external Hive table from HBase table
+	create external table computer(Computer_ID int, Model string,...)stored by 'org.apache.hadoop.hive.hbase.HbaseStorageHandler' WITH SERDEPROPERTIES("hbase.columns.mapping"="columnfamily:col1,columnfamily:col2,...") TBLPROPERTIES("hbase.table.name"="tablename");
+- HQL
+	(almost same as SQL)(HW6)
+
+1.6 Use impala Shell to operate the dataset in Hadoop
+- Preparation
+	impala-shell
+- Operation Code
+	(almost same as SQL) (HW7)
+
+1.7 Use HBase Shell to manipulate dataset in Hadoop
+- Preparation
+	hbase shell
+- Examine the table list
+	list
+- Create table together with the column family
+	create 'tablename','columnfamily'
+- Insert single row of data into the table
+	(one time one data of a row can be inserted)
+	put 'tablename',1(index),'columnfamily:column','info'
+- View the table
+	scan 'tablename'
+- SELECT some of the columns from the table with conditions
+	scan 'tablename',{COLUNUMS => ['columnfamily:col1','columnfamily:col2'], FILTER =>"ValueFilter(>,'binaryprefix:2')"}
+
+2. MongoDB Basic Knowledge
+
+- Preparation
+	cd adv-db-labs/mongodb
+	docker-compose up -d
+	docker-compose exec mongo mongo -u admin -p pass --authenticationDatabase=admin
+
+2.1 Basic Select statement
+- Select columns from the table
+	(1:show the column,0:not show the column)
+	db.tablename.find({},{"col1":1,"col2":1,"_id":0})
+- Select columns from the table with condition
+	(the sort here is asc)
+	db.tablename.find({"col1":{$lt:500}},{"col1":1,"col2":1,"_id":0}).sort("col2":1)
+
+2.2 Analyze the Query
+- Examine the query's power
+	(pay more attention to the "inputStage":"stage" and "totalDocsExamined")
+	[query].explain("executionStats")
+- Create the Index
+	db.tablename.createIndex({col1:1})
+
+3. Redis Basic Knowledge
+
+- Preparation
+	cd adv-db-labs/redis
+	docker-compose up -d
+	docker-compose exec redis redis-cli
+
+3.1 Store the data in string
+- Store the data
+	(EX 10: info will expire in 10 seconds)
+	Set user:name mike EX 10
+	MSet user:name mike user:age 47 
+- Call the data
+	get user:name
+	mget user:name mike user:age 47
+	(find all the keys)
+	Keys user:*
+- Determine if the key exists
+	exists user:address
+- Delete a key
+	Del user:name
+
+3.2 Store the data in list
+- Store the data
+	Lpush shopping apple
+	Lpush shopping pear
+	Rpush shopping orange
+- See the data
+	(show all -> 0:-1)
+	Lrange shopping 0 –1
+- Pop the data
+	Lpop shopping
+- See the length of the list
+	LLen shopping
+- To check the info of certain data
+	Lindex shopping 2
+	(if you wanna update it)
+	Lset shopping 2 new_info
+
+3.2 Store the data in Hash
+- Store the data
+	hset session:mafudge name "Michael Fudge"
+	hset session:mafudge credit_limit 500
+	hmset session:mafudge email "mafudge@syr.edu" twitter "@mafudge"
+- Call the data
+	hget session:mafudge email
+	hmget session:mafudge name email twitter facebook
+- Check if fields exist
+ 	hexists session:mafudge email
+- Get all field and values
+	Hgetall session:mafudge
+
+3.3 Store the data in ZSet (Sorted set)
+- Store the data
+	zadd app:leaderboard 100 dave 120 sally 90 bill 200 George
+- View the data
+	zrange app:leaderboard 0 -1
+	zrange app:leaderboard 0 -1 withscores
+- Update the data
+	(wanna add value on a data)
+	zadd app:leaderboard incr 100 sally
+	zincrby app:leaderboard 100 bill
+	(wanna directly change the value)
+	Zadd app:leaderboard 240 bill
+- Get infomation
+	(get the index of George)
+	Zrank app:leaderboard George
+	(get the score of George) 
+	Zscore app:leaderboard George
+
+3.4 Subscribe and Publish
+ 	(Need two windows for this)
+#window1 
+	Subscribe chat
+#windows 2
+	Publish chat “hi”
+	Publish chat “are you there?”
+
+4. Cassandra Basic Knowledge
+
+- Preparation
+	cd adv-db-labs/cassandra
+	docker-compose up -d
+	docker-compose exec cassandra0 cqlsh
+
+4.1 Create keyspace/datasets
+- Examine&create new keyspace
+	describe keyspaces;
+	create keyspace keyspacename with
+	replication = {'class':'SimpleStrategy','replication_factor':3};
+	Use keyspacename;
+- Use CQL to create table
+	(PRIMARY KEY((PARTITION KEYS) CLUSTER KEYS))
+	CREATE TABLE tablenames(
+		col1 INT,
+		col2 TEXT,
+		col3 TIMESTAMP,
+		col4 TINYINT,
+		col5 DOUBLE,
+		PRIMARY KEY((col1,col2),col3));
+
+4.2 Manipulate the table in CQL
+- Insert data into table via CQL
+	INSERT INTO tablenames(col1,col2,...)
+	VALUES(v1,v2,...);
+- SELECT data
+	(must use all partition keys and at least one cluster keys)
+- Set Materialized View
+	(materialized view looks like setting a new partition key)
+	CREATE MATERIALIZED VIEW viewname
+	AS SELECT * FROM WHERE partition keys is NOT NULL AND cluster keys is NOT NULL
+	(PRIMARY KEY(newColumnWeWannaUse,old keys))
+- Set a new index
+	(Index could work as a cluster key)
+	CREATE INDEX ix_index_name ON tablenames(col5);
